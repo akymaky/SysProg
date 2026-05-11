@@ -1,6 +1,8 @@
 using System.Text;
 using _01_34_SysProg;
 
+ManualResetEvent shutdownEvent = new ManualResetEvent(false);
+
 var router = new GifRouter();
 
 router.Get("/test", async ctx =>
@@ -15,6 +17,15 @@ router.Get("/test", async ctx =>
 using var api = new GifApi("http://localhost:8080/", router.TryRouteAsync);
 api.Start();
 
-Console.WriteLine("Press ENTER to stop...");
-Console.ReadLine();
+Console.CancelKeyPress += (sender, eventArgs) =>
+{
+    eventArgs.Cancel = true;
+    Console.WriteLine("Shutting down...");
+    shutdownEvent.Set();
+};
+
+Console.WriteLine("Press CTRL+C to stop.");
+
+shutdownEvent.WaitOne();
+
 api.Stop();
