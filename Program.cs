@@ -1,11 +1,20 @@
 using System.Net;
-using System.Text;
 using _01_34_SysProg;
 
 var shutdownEvent = new ManualResetEvent(false);
 
-using var api = new HttpServer("http://localhost:8080/", new RequestQueue<HttpListenerContext>());
-api.Start();
+int workers = Environment.ProcessorCount;
+string rootPath = Path.Join(Directory.GetCurrentDirectory(), "public");
+string prefix = "http://localhost:8080/";
+
+var queue = new RequestQueue<HttpListenerContext>();
+var searchService = new SearchService(rootPath);
+var handler = new RequestHandler(searchService);
+var workerPool = new WorkerPool(workers, queue, handler);
+var server = new HttpServer(prefix, queue);
+
+workerPool.Start();
+server.Start();
 
 Console.CancelKeyPress += (sender, eventArgs) =>
 {
@@ -18,4 +27,7 @@ Console.WriteLine("Press CTRL+C to stop.");
 
 shutdownEvent.WaitOne();
 
-api.Stop();
+server.Stop();
+queue.Stop();
+
+Console.WriteLine("Shutdown complete.");
