@@ -42,7 +42,10 @@ public class RequestQueue<T>
     
     public void Stop()
     {
-        _stopped = true;
-        Monitor.PulseAll(_lock);
+        lock (_lock)
+        {
+            _stopped = true;
+            Monitor.PulseAll(_lock);
+        }
     }
 }
