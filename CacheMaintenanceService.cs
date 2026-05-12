@@ -8,7 +8,7 @@ public class CacheMaintenanceService(
     public void Start()
     {
         ThreadPool.QueueUserWorkItem(_ => Run());
-        Console.WriteLine("Cache maintenance service started.");
+        Logger.Info("Cache maintenance service started.");
     }
 
     private void Run()
@@ -23,12 +23,12 @@ public class CacheMaintenanceService(
                 }
 
                 cache.CleanupExpired();
-                Console.WriteLine("Cache cleanup completed.");
+                Logger.Info("Cache cleanup completed.");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine("Cache maintenance error: " + ex.Message);
+            Logger.Error("Cache maintenance error: " + ex.Message);
         }
     }
 }

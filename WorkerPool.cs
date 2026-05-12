@@ -12,7 +12,7 @@ public class WorkerPool(int poolSize, RequestQueue<HttpListenerContext> queue, R
         }
     }
 
-    public void WorkerLoop(object? state)
+    private void WorkerLoop(object? state)
     {
         while (queue.TryDequeue(out var ctx))
         {
@@ -22,7 +22,7 @@ public class WorkerPool(int poolSize, RequestQueue<HttpListenerContext> queue, R
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Worker error: " + ex.Message);
+                Logger.Error("Worker error: " + ex.Message);
                 SafeWriteError(ctx, 500, "Internal server error.");
             }
         }

@@ -17,7 +17,7 @@ public class RequestHandler(SearchService searchService, TtlCache cache)
             return;
         }
 
-        Console.WriteLine($"Request: {fileName}");
+        Logger.Info($"Request: {fileName}");
 
         string? fullPath = cache.GetOrAdd(fileName, () => searchService.FindFile(fileName));
 
@@ -35,7 +35,7 @@ public class RequestHandler(SearchService searchService, TtlCache cache)
         ctx.Response.OutputStream.Write(data, 0, data.Length);
         ctx.Response.Close();
 
-        Console.WriteLine($"Served: {fileName} ({data.Length} bytes)");
+        Logger.Info($"Served: {fileName} ({data.Length} bytes)");
     }
 
     private void WriteText(HttpListenerContext ctx, int statusCode, string message)

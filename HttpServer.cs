@@ -27,7 +27,7 @@ class HttpServer: IDisposable
     public void Start()
     {
         _listener.Start();
-        Console.WriteLine($"Listening on {String.Join(", ", _listener.Prefixes)}");
+        Logger.Info($"Listening on {String.Join(", ", _listener.Prefixes)}");
         
         var thread = new Thread(ListenLoop)
         {
@@ -36,7 +36,7 @@ class HttpServer: IDisposable
         };
         
         thread.Start();
-        Console.WriteLine($"Server thread started.");
+        Logger.Info($"Server thread started.");
         
     }
 
@@ -52,15 +52,15 @@ class HttpServer: IDisposable
         }
         catch (HttpListenerException ex) when (_ct.IsCancellationRequested)
         {
-            Console.WriteLine("Listener stopped due to cancellation");
+            Logger.Error("Listener stopped due to cancellation");
         }
         catch (ObjectDisposedException) when (_ct.IsCancellationRequested)
         {
-            Console.WriteLine("Listener disposed while shutting down");
+            Logger.Error("Listener disposed while shutting down");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Listener error: {ex}");
+            Logger.Error($"Listener error: {ex}");
         }
     }
 

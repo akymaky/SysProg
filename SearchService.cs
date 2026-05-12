@@ -28,15 +28,15 @@ public class SearchService(string rootPath)
             }
             catch (UnauthorizedAccessException ex)
             {
-                Console.WriteLine($"No access to directory: {currDir}\n{ex.Message}");
+                Logger.Error($"No access to directory: {currDir}\n{ex.Message}");
             }
             catch (DirectoryNotFoundException ex)
             {
-                Console.WriteLine($"Directory not found: {currDir}\n{ex.Message}");
+                Logger.Error($"Directory not found: {currDir}\n{ex.Message}");
             }
             catch (IOException ex)
             {
-                Console.WriteLine($"IO error in directory: {currDir}\n{ex.Message}");
+                Logger.Error($"IO error in directory: {currDir}\n{ex.Message}");
             }
         }
 

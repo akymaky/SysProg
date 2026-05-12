@@ -24,16 +24,16 @@ server.Start();
 Console.CancelKeyPress += (_, eventArgs) =>
 {
     eventArgs.Cancel = true;
-    Console.WriteLine("Shutting down...");
+    Logger.Info("Shutting down...");
     cts.Cancel();
     shutdownEvent.Set();
 };
 
-Console.WriteLine("Press CTRL+C to stop.");
+Logger.Info("Press CTRL+C to stop.");
 
 shutdownEvent.WaitOne();
 
 server.Stop();
 queue.Stop();
 
-Console.WriteLine("Shutdown complete.");
+Logger.Info("Shutdown complete.");
