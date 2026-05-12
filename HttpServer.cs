@@ -1,9 +1,8 @@
 ﻿using System.Net;
-using System.Text;
 
 namespace _01_34_SysProg;
 
-class HttpServer: IDisposable
+public class HttpServer: IDisposable
 {
     private readonly HttpListener _listener;
     private readonly RequestQueue<HttpListenerContext> _queue;

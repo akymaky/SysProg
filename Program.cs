@@ -3,9 +3,9 @@ using _01_34_SysProg;
 
 var shutdownEvent = new ManualResetEvent(false);
 
-int workers = Environment.ProcessorCount;
-string rootPath = Path.Join(Directory.GetCurrentDirectory(), "public");
-string prefix = "http://localhost:8080/";
+var workers = Environment.ProcessorCount;
+var rootPath = Path.Join(Directory.GetCurrentDirectory(), "public");
+var prefix = "http://localhost:8080/";
 
 var cts = new  CancellationTokenSource();
 

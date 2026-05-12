@@ -4,7 +4,7 @@ public class RequestQueue<T>
 {
     private readonly Queue<T> _queue = new();
     private readonly object _lock = new();
-    private bool _stopped = false;
+    private bool _stopped;
 
     public void Enqueue(T item)
     {
