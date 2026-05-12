@@ -21,7 +21,7 @@ workerPool.Start();
 cacheMaintenance.Start();
 server.Start();
 
-Console.CancelKeyPress += (sender, eventArgs) =>
+Console.CancelKeyPress += (_, eventArgs) =>
 {
     eventArgs.Cancel = true;
     Console.WriteLine("Shutting down...");

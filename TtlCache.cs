@@ -68,17 +68,12 @@ public class TtlCache(TimeSpan tll)
         lock (_lock)
         {
             var now = DateTime.UtcNow;
-            var keysToRemove = new List<string>();
+            var expiredKeys = _entries
+                .Where(p => !p.Value.IsLoading && p.Value.ExpiresAt <= now)
+                .Select(p => p.Key)
+                .ToList();
 
-            foreach (var pair in _entries)
-            {
-                if (!pair.Value.IsLoading && pair.Value.ExpiresAt <= now)
-                {
-                    keysToRemove.Add(pair.Key);
-                }
-            }
-
-            foreach (var key in keysToRemove)
+            foreach (var key in expiredKeys)
             {
                 _entries.Remove(key);
             }
