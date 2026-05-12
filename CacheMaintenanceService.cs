@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-
 namespace _01_34_SysProg;
 
 public class CacheMaintenanceService(
