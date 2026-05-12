@@ -3,15 +3,13 @@ using System.Text;
 
 namespace _01_34_SysProg;
 
-class HttpServer : IDisposable
+class HttpServer: IDisposable
 {
     private readonly HttpListener _listener;
     private readonly RequestQueue<HttpListenerContext> _queue;
-    private readonly CancellationTokenSource _cts = new();
+    private readonly CancellationToken _ct;
     
-    public CancellationToken Token => _cts.Token;
-
-    public HttpServer(string prefix, RequestQueue<HttpListenerContext> queue)
+    public HttpServer(string prefix, RequestQueue<HttpListenerContext> queue, CancellationToken ct)
     {
         if (!HttpListener.IsSupported)
         {
@@ -22,6 +20,8 @@ class HttpServer : IDisposable
         _listener.Prefixes.Add(prefix);
         
         _queue = queue;
+        
+        _ct = ct;
     }
 
     public void Start()
@@ -44,17 +44,17 @@ class HttpServer : IDisposable
     {
         try
         {
-            while (!Token.IsCancellationRequested)
+            while (!_ct.IsCancellationRequested)
             {
                 var ctx = _listener.GetContext();
                 _queue.Enqueue(ctx);
             }
         }
-        catch (HttpListenerException ex) when (Token.IsCancellationRequested)
+        catch (HttpListenerException ex) when (_ct.IsCancellationRequested)
         {
             Console.WriteLine("Listener stopped due to cancellation");
         }
-        catch (ObjectDisposedException) when (Token.IsCancellationRequested)
+        catch (ObjectDisposedException) when (_ct.IsCancellationRequested)
         {
             Console.WriteLine("Listener disposed while shutting down");
         }
@@ -66,7 +66,6 @@ class HttpServer : IDisposable
 
     public void Stop()
     {
-        _cts.Cancel();
         _listener.Stop();
         _listener.Close();
     }
