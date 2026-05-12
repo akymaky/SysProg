@@ -2,12 +2,10 @@ namespace _01_34_SysProg;
 
 public class SearchService(string rootPath)
 {
-    private readonly string _rootPath = rootPath;
-
     public string? FindFile(string fileName)
     {
         var dirs = new Queue<string>();
-        dirs.Enqueue(_rootPath);
+        dirs.Enqueue(rootPath);
 
         while (dirs.Count > 0)
         {

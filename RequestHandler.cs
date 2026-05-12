@@ -3,7 +3,7 @@ using System.Text;
 
 namespace _01_34_SysProg;
 
-public class RequestHandler(SearchService searchService)
+public class RequestHandler(SearchService searchService, TtlCache cache)
 {
 
     public void Handle(HttpListenerContext ctx)
@@ -19,7 +19,7 @@ public class RequestHandler(SearchService searchService)
 
         Console.WriteLine($"Request: {fileName}");
 
-        string? fullPath = searchService.FindFile(fileName);
+        string? fullPath = cache.GetOrAdd(fileName, () => searchService.FindFile(fileName));
 
         if (fullPath == null || !File.Exists(fullPath))
         {

@@ -9,7 +9,8 @@ string prefix = "http://localhost:8080/";
 
 var queue = new RequestQueue<HttpListenerContext>();
 var searchService = new SearchService(rootPath);
-var handler = new RequestHandler(searchService);
+var cache = new TtlCache(TimeSpan.FromMinutes(5));
+var handler = new RequestHandler(searchService, cache);
 var workerPool = new WorkerPool(workers, queue, handler);
 var server = new HttpServer(prefix, queue);
 
