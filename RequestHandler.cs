@@ -33,15 +33,23 @@ public class RequestHandler(SearchService searchService, TtlCache cache)
             return;
         }
 
-        byte[] data = File.ReadAllBytes(fullPath);
-
-        ctx.Response.StatusCode = 200;
-        ctx.Response.ContentType = GetContentType(fullPath);
-        ctx.Response.ContentLength64 = data.Length;
-        ctx.Response.OutputStream.Write(data, 0, data.Length);
-        ctx.Response.Close();
-
-        Logger.Info($"Served: {fileName} ({data.Length} bytes)");
+        try
+        {
+            byte[] data = File.ReadAllBytes(fullPath);
+            ctx.Response.StatusCode = 200;
+            ctx.Response.ContentType = "image/gif";
+            ctx.Response.ContentLength64 = data.Length;
+            ctx.Response.OutputStream.Write(data, 0, data.Length);
+            Logger.Info($"Served: {fileName} ({data.Length} bytes)");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Failed to write response for {fileName}: {ex.Message}");
+        }
+        finally
+        {
+            try { ctx.Response.Close(); } catch { /* ignore */ }
+        }
     }
 
     private void WriteText(HttpListenerContext ctx, int statusCode, string message)
@@ -53,17 +61,4 @@ public class RequestHandler(SearchService searchService, TtlCache cache)
         ctx.Response.OutputStream.Write(data, 0, data.Length);
         ctx.Response.Close();
     }
-
-    private string GetContentType(string path)
-    {
-        return Path.GetExtension(path).ToLowerInvariant() switch
-        {
-            ".gif" => "image/gif",
-            ".png" => "image/png",
-            ".jpg" => "image/jpeg",
-            ".jpeg" => "image/jpeg",
-            _ => "application/octet-stream"
-        };
-    }
-    
 }
