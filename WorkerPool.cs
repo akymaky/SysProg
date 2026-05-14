@@ -16,6 +16,11 @@ public class WorkerPool(int poolSize, RequestQueue<HttpListenerContext> queue, R
     {
         while (queue.TryDequeue(out var ctx))
         {
+            if (ctx == null)
+            {
+                continue;
+            }
+
             try
             {
                 handler.Handle(ctx);
