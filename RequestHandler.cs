@@ -16,8 +16,8 @@ public class RequestHandler(SearchService searchService, TtlCache cache)
             WriteText(ctx, 400, "File name is missing.");
             return;
         }
-        
-        if (!fileName.EndsWith(".gif"))
+
+        if (!string.Equals(Path.GetExtension(fileName), ".gif", StringComparison.OrdinalIgnoreCase))
         {
             WriteText(ctx, 400, "Only GIF files are supported.");
             return;
