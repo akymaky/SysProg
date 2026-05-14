@@ -3,7 +3,7 @@ using System.Text;
 
 namespace _01_34_SysProg;
 
-public class RequestHandler(SearchService searchService, TtlCache cache)
+public class RequestHandler(SearchService searchService, TtlCache<GifCacheItem> cache)
 {
 
     public void Handle(HttpListenerContext ctx)
@@ -24,10 +24,22 @@ public class RequestHandler(SearchService searchService, TtlCache cache)
         }
 
         Logger.Info($"Request: {fileName}");
+        
+        var cacheKey = fileName.ToLowerInvariant();
 
-        string? fullPath = cache.GetOrAdd(fileName, () => searchService.FindFile(fileName));
+        GifCacheItem? cached = cache.GetOrAdd(cacheKey, () => {
+            string? fullPath = searchService.FindFile(fileName);
 
-        if (fullPath == null || !File.Exists(fullPath))
+            if (fullPath == null || !File.Exists(fullPath))
+            {
+                return null;
+            }
+
+            byte[] bytes = File.ReadAllBytes(fullPath);
+            return new GifCacheItem(fullPath, bytes);
+        });
+
+        if (cached == null)
         {
             WriteText(ctx, 404, $"File with name '{fileName}' does not exist.");
             return;
@@ -35,7 +47,7 @@ public class RequestHandler(SearchService searchService, TtlCache cache)
 
         try
         {
-            byte[] data = File.ReadAllBytes(fullPath);
+            byte[] data = cached.Data;
             ctx.Response.StatusCode = 200;
             ctx.Response.ContentType = "image/gif";
             ctx.Response.ContentLength64 = data.Length;

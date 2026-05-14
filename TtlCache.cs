@@ -1,10 +1,10 @@
 namespace _01_34_SysProg;
 
-public class TtlCache(TimeSpan ttl)
+public class TtlCache<T>(TimeSpan ttl)
 {
     private class CacheEntry
     {
-        public string? Value;
+        public T? Value;
         public DateTime ExpiresAt;
         public bool IsLoading;
     }
@@ -12,7 +12,7 @@ public class TtlCache(TimeSpan ttl)
     private readonly Dictionary<string, CacheEntry> _entries = new();
     private readonly object _lock = new();
 
-    public string? GetOrAdd(string key, Func<string?> valueFactory)
+    public T? GetOrAdd(string key, Func<T?> valueFactory)
     {
         CacheEntry entry;
 
@@ -40,7 +40,7 @@ public class TtlCache(TimeSpan ttl)
             }
         }
 
-        string? value = null;
+        T? value = default;
         try
         {
             value = valueFactory();

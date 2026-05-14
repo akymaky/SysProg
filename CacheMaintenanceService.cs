@@ -1,7 +1,7 @@
 namespace _01_34_SysProg;
 
-public class CacheMaintenanceService(
-    TtlCache cache,
+public class CacheMaintenanceService<T>(
+    TtlCache<T> cache,
     CancellationToken ct,
     TimeSpan interval)
 {

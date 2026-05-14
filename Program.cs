@@ -11,8 +11,8 @@ var cts = new  CancellationTokenSource();
 
 var queue = new RequestQueue<HttpListenerContext>();
 var searchService = new SearchService(rootPath);
-var cache = new TtlCache(TimeSpan.FromMinutes(5));
-var cacheMaintenance = new CacheMaintenanceService(cache, cts.Token, TimeSpan.FromSeconds(30));
+var cache = new TtlCache<GifCacheItem>(TimeSpan.FromMinutes(5));
+var cacheMaintenance = new CacheMaintenanceService<GifCacheItem>(cache, cts.Token, TimeSpan.FromSeconds(30));
 var handler = new RequestHandler(searchService, cache);
 var workerPool = new WorkerPool(workers, queue, handler);
 var server = new HttpServer(prefix, queue, cts.Token);
