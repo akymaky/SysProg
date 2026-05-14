@@ -1,6 +1,6 @@
 namespace _01_34_SysProg;
 
-public class TtlCache(TimeSpan tll)
+public class TtlCache(TimeSpan ttl)
 {
     private class CacheEntry
     {
@@ -8,59 +8,55 @@ public class TtlCache(TimeSpan tll)
         public DateTime ExpiresAt;
         public bool IsLoading;
     }
-    
+
     private readonly Dictionary<string, CacheEntry> _entries = new();
     private readonly object _lock = new();
 
     public string? GetOrAdd(string key, Func<string?> valueFactory)
     {
+        CacheEntry entry;
+
         lock (_lock)
         {
             while (true)
             {
-                if (_entries.TryGetValue(key, out var entry))
+                if (_entries.TryGetValue(key, out var existing))
                 {
-                    if (!entry.IsLoading && entry.ExpiresAt > DateTime.UtcNow)
-                    {
-                        return entry.Value;
-                    }
-
-                    if (entry.IsLoading)
+                    if (existing.IsLoading)
                     {
                         Monitor.Wait(_lock);
                         continue;
                     }
+
+                    if (existing.ExpiresAt > DateTime.UtcNow)
+                    {
+                        return existing.Value;
+                    }
                 }
 
-                _entries[key] = new CacheEntry
-                {
-                    IsLoading = true,
-                    ExpiresAt = DateTime.UtcNow.Add(tll)
-                };
+                entry = new CacheEntry { IsLoading = true };
+                _entries[key] = entry;
                 break;
             }
         }
 
         string? value = null;
-
         try
         {
             value = valueFactory();
-            return value;
         }
         finally
         {
             lock (_lock)
             {
-                _entries[key] = new CacheEntry
-                {
-                    Value = value,
-                    ExpiresAt = DateTime.UtcNow.Add(tll),
-                    IsLoading = false
-                };
+                entry.Value = value;
+                entry.IsLoading = false;
+                entry.ExpiresAt = DateTime.UtcNow.Add(ttl);
                 Monitor.PulseAll(_lock);
             }
         }
+
+        return value;
     }
     
     public void CleanupExpired()
