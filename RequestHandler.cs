@@ -63,7 +63,7 @@ public class RequestHandler(SearchService searchService, TtlCache<GifCacheItem> 
                 .ContinueWith(t =>
                 {
                     var bytes = t.Result;
-                    return ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct);
+                    return ctx.Response.OutputStream.WriteAsync(bytes.AsMemory(0, bytes.Length), ct);
                 }, ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default)
                 .ContinueWith(t => { Logger.Info($"Served: {fileName} ({data.Length} bytes)"); },
                     TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously)
