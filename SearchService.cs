@@ -1,4 +1,4 @@
-namespace _01_34_SysProg;
+namespace _02_34_SysProg;
 
 public class SearchService(string rootPath)
 {

@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text;
 
-namespace _01_34_SysProg;
+namespace _02_34_SysProg;
 
 public class RequestHandler(SearchService searchService, TtlCache<GifCacheItem> cache)
 {
