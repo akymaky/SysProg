@@ -1,16 +1,18 @@
 namespace _01_34_SysProg;
 
-public class TtlCache<T>(TimeSpan ttl)
+public class TtlCache<T>
 {
-    private class CacheEntry
-    {
-        public T? Value;
-        public DateTime ExpiresAt;
-        public bool IsLoading;
-    }
-
     private readonly Dictionary<string, CacheEntry> _entries = new();
     private readonly object _lock = new();
+
+    private readonly TimeSpan _ttl;
+
+    public TtlCache(TimeSpan ttl)
+    {
+        if (ttl <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(ttl), "TTL must be positive.");
+
+        _ttl = ttl;
+    }
 
     public T? GetOrAdd(string key, Func<T?> valueFactory)
     {
@@ -18,26 +20,14 @@ public class TtlCache<T>(TimeSpan ttl)
 
         lock (_lock)
         {
-            while (true)
-            {
-                if (_entries.TryGetValue(key, out var existing))
-                {
-                    if (existing.IsLoading)
-                    {
-                        Monitor.Wait(_lock);
-                        continue;
-                    }
+            CacheEntry? existing;
 
-                    if (existing.ExpiresAt > DateTime.UtcNow)
-                    {
-                        return existing.Value;
-                    }
-                }
+            while (_entries.TryGetValue(key, out existing) && existing.IsLoading) Monitor.Wait(_lock);
 
-                entry = new CacheEntry { IsLoading = true };
-                _entries[key] = entry;
-                break;
-            }
+            if (existing is not null && existing.ExpiresAt > DateTime.UtcNow) return existing.Value;
+
+            entry = new CacheEntry { IsLoading = true };
+            _entries[key] = entry;
         }
 
         T? value = default;
@@ -45,20 +35,31 @@ public class TtlCache<T>(TimeSpan ttl)
         {
             value = valueFactory();
         }
+        catch
+        {
+            lock (_lock)
+            {
+                _entries.Remove(key);
+                entry.IsLoading = false;
+                Monitor.PulseAll(_lock);
+            }
+
+            throw;
+        }
         finally
         {
             lock (_lock)
             {
                 entry.Value = value;
                 entry.IsLoading = false;
-                entry.ExpiresAt = DateTime.UtcNow.Add(ttl);
+                entry.ExpiresAt = DateTime.UtcNow.Add(_ttl);
                 Monitor.PulseAll(_lock);
             }
         }
 
         return value;
     }
-    
+
     public void CleanupExpired()
     {
         lock (_lock)
@@ -69,10 +70,14 @@ public class TtlCache<T>(TimeSpan ttl)
                 .Select(p => p.Key)
                 .ToList();
 
-            foreach (var key in expiredKeys)
-            {
-                _entries.Remove(key);
-            }
+            foreach (var key in expiredKeys) _entries.Remove(key);
         }
+    }
+
+    private class CacheEntry
+    {
+        public DateTime ExpiresAt;
+        public bool IsLoading;
+        public T? Value;
     }
 }
