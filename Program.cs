@@ -14,12 +14,13 @@ var searchService = new SearchService(rootPath);
 var cache = new TtlCache<GifCacheItem>(TimeSpan.FromMinutes(5));
 var cacheMaintenance = new CacheMaintenanceService<GifCacheItem>(cache, cts.Token, TimeSpan.FromSeconds(30));
 var handler = new RequestHandler(searchService, cache);
-var workerPool = new WorkerPool(workers, queue, handler);
+var workerPool = new WorkerPool(workers, queue, handler, cts.Token);
 var server = new HttpServer(prefix, queue, cts.Token);
 
 workerPool.Start();
 cacheMaintenance.Start();
 server.Start();
+var workerTask = workerPool.StartAsync();
 
 Console.CancelKeyPress += (_, eventArgs) =>
 {
@@ -36,7 +37,6 @@ await shutdownTcs.Task;
 server.Stop();
 queue.Stop();
 
-workerPool.Join();
 cacheMaintenance.Join();
 
 Logger.Info("Shutdown complete.");
