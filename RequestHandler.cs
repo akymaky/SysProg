@@ -59,18 +59,21 @@ public class RequestHandler(SearchService searchService, TtlCache<GifCacheItem> 
             ctx.Response.ContentType = "image/gif";
             ctx.Response.ContentLength64 = data.Length;
 
-            var writeTask = Task.FromResult(data)
-                .ContinueWith(t =>
-                {
-                    var bytes = t.Result;
-                    return ctx.Response.OutputStream.WriteAsync(bytes.AsMemory(0, bytes.Length), ct);
-                }, ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default)
-                .ContinueWith(t => { Logger.Info($"Served: {fileName} ({data.Length} bytes)"); },
-                    TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously)
-                .ContinueWith(t =>
-                {
-                    if (t.IsFaulted) Logger.Error($"Failed to write response for {fileName}: {t.Exception.Message}");
-                }, TaskContinuationOptions.OnlyOnFaulted);
+            var dataTask = Task.FromResult(data);
+
+            var writeTask = dataTask.ContinueWith(t =>
+            {
+                var bytes = t.Result;
+                return ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct);
+            }, ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+
+            writeTask.ContinueWith(t => { Logger.Info($"Served: {fileName} ({data.Length} bytes)"); },
+                TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously);
+
+            writeTask.ContinueWith(t =>
+            {
+                if (t.IsFaulted) Logger.Error($"Failed to write response for {fileName}: {t.Exception.InnerExceptions}");
+            }, TaskContinuationOptions.OnlyOnFaulted);
 
             await writeTask;
         }
@@ -91,7 +94,8 @@ public class RequestHandler(SearchService searchService, TtlCache<GifCacheItem> 
         }
     }
 
-    private static async Task WriteTextAsync(HttpListenerContext ctx, int statusCode, string message, CancellationToken ct)
+    private static async Task WriteTextAsync(HttpListenerContext ctx, int statusCode, string message,
+        CancellationToken ct)
     {
         var data = Encoding.UTF8.GetBytes(message);
         ctx.Response.StatusCode = statusCode;
