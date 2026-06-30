@@ -17,10 +17,9 @@ var handler = new RequestHandler(searchService, cache);
 var workerPool = new WorkerPool(workers, queue, handler, cts.Token);
 var server = new HttpServer(prefix, queue, cts.Token);
 
-workerPool.Start();
-server.Start();
 var workerTask = workerPool.StartAsync();
 var maintenanceTask = cacheMaintenance.StartAsync();
+var serverTask = server.StartAsync();
 
 Console.CancelKeyPress += (_, eventArgs) =>
 {
@@ -37,5 +36,15 @@ await shutdownTcs.Task;
 server.Stop();
 queue.Stop();
 
+try
+{
+    await Task.WhenAll(serverTask, workerTask, maintenanceTask)
+        .ContinueWith(t => { Logger.Info("All background tasks completed successfully."); },
+            TaskContinuationOptions.OnlyOnRanToCompletion);
+}
+catch (OperationCanceledException)
+{
+    Logger.Info("Shutdown completed with cancellation.");
+}
 
 Logger.Info("Shutdown complete.");
