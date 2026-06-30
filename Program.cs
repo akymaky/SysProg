@@ -7,7 +7,7 @@ var workers = Environment.ProcessorCount;
 var rootPath = Path.Join(Directory.GetCurrentDirectory(), "public");
 var prefix = "http://localhost:8080/";
 
-var cts = new  CancellationTokenSource();
+var cts = new CancellationTokenSource();
 
 var queue = new RequestQueue<HttpListenerContext>();
 var searchService = new SearchService(rootPath);
@@ -35,5 +35,8 @@ shutdownEvent.WaitOne();
 
 server.Stop();
 queue.Stop();
+
+workerPool.Join();
+cacheMaintenance.Join();
 
 Logger.Info("Shutdown complete.");

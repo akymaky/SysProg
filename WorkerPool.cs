@@ -4,22 +4,33 @@ namespace _01_34_SysProg;
 
 public class WorkerPool(int poolSize, RequestQueue<HttpListenerContext> queue, RequestHandler handler)
 {
+    private readonly List<Thread> _threads = new();
+
     public void Start()
     {
-        for (int i = 0; i < poolSize; i++)
+        for (var i = 0; i < poolSize; i++)
         {
-            ThreadPool.QueueUserWorkItem(WorkerLoop);
+            var thread = new Thread(WorkerLoop)
+            {
+                IsBackground = true,
+                Name = $"WorkerThread-{i}"
+            };
+
+            _threads.Add(thread);
+            thread.Start();
         }
+    }
+
+    public void Join()
+    {
+        foreach (var thread in _threads) thread.Join();
     }
 
     private void WorkerLoop(object? state)
     {
         while (queue.TryDequeue(out var ctx))
         {
-            if (ctx == null)
-            {
-                continue;
-            }
+            if (ctx == null) continue;
 
             try
             {
@@ -32,7 +43,7 @@ public class WorkerPool(int poolSize, RequestQueue<HttpListenerContext> queue, R
             }
         }
     }
-    
+
     private void SafeWriteError(HttpListenerContext ctx, int code, string message)
     {
         try
