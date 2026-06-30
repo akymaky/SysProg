@@ -1,51 +1,23 @@
+using System.Threading.Channels;
+
 namespace _01_34_SysProg;
 
 public class RequestQueue<T>
 {
-    private readonly Queue<T> _queue = new();
-    private readonly object _lock = new();
-    private bool _stopped;
+    private readonly Channel<T> _channel = Channel.CreateUnbounded<T>();
 
-    public void Enqueue(T item)
+    public async Task EnqueueAsync(T item, CancellationToken ct)
     {
-        lock (_lock)
-        {
-            if (_stopped)
-            {
-                throw new InvalidOperationException("Queue is already stopped");
-            }
-            
-            _queue.Enqueue(item);
-            Monitor.Pulse(_lock);
-        }
+        await _channel.Writer.WriteAsync(item, ct);
     }
 
-    public bool TryDequeue(out T? item)
+    public IAsyncEnumerable<T> DequeueAllAsync(CancellationToken ct)
     {
-        lock (_lock)
-        {
-            while (_queue.Count == 0 && !_stopped)
-            {
-                Monitor.Wait(_lock);
-            }
-
-            if (_queue.Count == 0 && _stopped)
-            {
-                item = default;
-                return false;
-            }
-            
-            item = _queue.Dequeue();
-            return true;
-        }
+        return _channel.Reader.ReadAllAsync(ct);
     }
-    
+
     public void Stop()
     {
-        lock (_lock)
-        {
-            _stopped = true;
-            Monitor.PulseAll(_lock);
-        }
+        _channel.Writer.Complete();
     }
 }
