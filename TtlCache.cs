@@ -14,48 +14,75 @@ public class TtlCache<T>
         _ttl = ttl;
     }
 
-    public T? GetOrAdd(string key, Func<T?> valueFactory)
+    public async Task<T?> GetOrAddAsync(string key, Func<Task<T?>> valueFactory)
     {
-        CacheEntry entry;
+        TaskCompletionSource<T?> tcs;
+        var shouldRunFactory = false;
 
         lock (_lock)
         {
-            CacheEntry? existing;
-
-            while (_entries.TryGetValue(key, out existing) && existing.IsLoading) Monitor.Wait(_lock);
-
-            if (existing is not null && existing.ExpiresAt > DateTime.UtcNow) return existing.Value;
-
-            entry = new CacheEntry { IsLoading = true };
-            _entries[key] = entry;
-        }
-
-        T? value = default;
-        try
-        {
-            value = valueFactory();
-            
-            lock (_lock)
+            if (_entries.TryGetValue(key, out var existing) && existing.ExpiresAt > DateTime.UtcNow)
             {
-                entry.Value = value;
-                entry.IsLoading = false;
-                entry.ExpiresAt = DateTime.UtcNow.Add(_ttl);
-                Monitor.PulseAll(_lock);
+                Logger.Info(
+                    $"[CACHE-HIT] Key='{key}' | Value returned from cache (expires: {existing.ExpiresAt:HH:mm:ss.fff})");
+                return existing.Value;
+            }
+
+            if (existing?.Tcs != null)
+            {
+                tcs = existing.Tcs;
+                Logger.Info($"[CACHE-STAMPEDE-WAIT] Key='{key}' | Waiting for existing loader (Task={tcs.Task.Id})...");
+            }
+            else
+            {
+                tcs = new TaskCompletionSource<T?>();
+                _entries[key] = new CacheEntry { IsLoading = true, Tcs = tcs };
+                shouldRunFactory = true;
+                Logger.Info($"[CACHE-MISS] Key='{key}' | Creating new loader (Task={tcs.Task.Id})...");
             }
         }
-        catch
+
+        if (!shouldRunFactory)
         {
+            var result = await tcs.Task;
+            Logger.Info($"[CACHE-STAMPEDE-RESOLVED] Key='{key}' | Waiter received result (Task={tcs.Task.Id})");
+            return result;
+        }
+
+        try
+        {
+            Logger.Info($"[CACHE-LOAD-START] Key='{key}' | Running value factory (Task={tcs.Task.Id})...");
+            var value = await valueFactory();
+
+            lock (_lock)
+            {
+                if (_entries.TryGetValue(key, out var entry))
+                {
+                    entry.Value = value;
+                    entry.IsLoading = false;
+                    entry.ExpiresAt = DateTime.UtcNow.Add(_ttl);
+                    entry.Tcs = null;
+                }
+            }
+
+            tcs.SetResult(value);
+            Logger.Info(
+                $"[CACHE-LOAD-COMPLETE] Key='{key}' | Factory finished, value cached until {DateTime.UtcNow.Add(_ttl):HH:mm:ss.fff} (Task={tcs.Task.Id})");
+
+            return value;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"[CACHE-LOAD-FAILED] Key='{key}' | Factory failed: {ex.Message} (Task={tcs.Task.Id})");
+
             lock (_lock)
             {
                 _entries.Remove(key);
-                entry.IsLoading = false;
-                Monitor.PulseAll(_lock);
             }
 
+            tcs.SetException(ex);
             throw;
         }
-
-        return value;
     }
 
     public void CleanupExpired()
@@ -68,7 +95,11 @@ public class TtlCache<T>
                 .Select(p => p.Key)
                 .ToList();
 
-            foreach (var key in expiredKeys) _entries.Remove(key);
+            foreach (var key in expiredKeys)
+            {
+                Logger.Info($"[CACHE-EXPIRE] Key='{key}' | Removed expired entry");
+                _entries.Remove(key);
+            }
         }
     }
 
@@ -76,6 +107,7 @@ public class TtlCache<T>
     {
         public DateTime ExpiresAt;
         public bool IsLoading;
+        public TaskCompletionSource<T?>? Tcs;
         public T? Value;
     }
 }
