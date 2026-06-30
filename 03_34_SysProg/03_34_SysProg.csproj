@@ -8,4 +8,9 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <PackageReference Include="Akka" Version="1.5.70-beta2" />
+      <PackageReference Include="System.Reactive" Version="7.0.0-rc.1" />
+    </ItemGroup>
+
 </Project>
