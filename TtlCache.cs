@@ -3,7 +3,7 @@ namespace _01_34_SysProg;
 public class TtlCache<T>
 {
     private readonly Dictionary<string, CacheEntry> _entries = new();
-    private readonly object _lock = new();
+    private readonly Lock _lock = new();
 
     private readonly TimeSpan _ttl;
 
