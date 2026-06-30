@@ -5,54 +5,77 @@ namespace _01_34_SysProg;
 
 public class RequestHandler(SearchService searchService, TtlCache<GifCacheItem> cache)
 {
-
-    public void Handle(HttpListenerContext ctx)
+    public async Task HandleAsync(HttpListenerContext ctx, CancellationToken ct)
     {
         var reqPath = ctx.Request.Url!.AbsolutePath.Trim('/');
         var fileName = Path.GetFileName(reqPath);
 
         if (string.IsNullOrWhiteSpace(fileName))
         {
-            WriteText(ctx, 400, "File name is missing.");
+            await WriteTextAsync(ctx, 400, "File name is missing.", ct);
             return;
         }
 
         if (!string.Equals(Path.GetExtension(fileName), ".gif", StringComparison.OrdinalIgnoreCase))
         {
-            WriteText(ctx, 400, "Only GIF files are supported.");
+            await WriteTextAsync(ctx, 400, "Only GIF files are supported.", ct);
             return;
         }
 
         Logger.Info($"Request: {fileName}");
-        
+
         var cacheKey = fileName.ToLowerInvariant();
 
-        GifCacheItem? cached = cache.GetOrAdd(cacheKey, () => {
-            string? fullPath = searchService.FindFile(fileName);
-
-            if (fullPath == null || !File.Exists(fullPath))
+        GifCacheItem? cached;
+        try
+        {
+            cached = await cache.GetOrAddAsync(cacheKey, async () =>
             {
-                return null;
-            }
+                var fullPath = searchService.FindFile(fileName);
 
-            byte[] bytes = File.ReadAllBytes(fullPath);
-            return new GifCacheItem(fullPath, bytes);
-        });
+                if (fullPath == null || !File.Exists(fullPath)) return null;
+
+                var bytes = await File.ReadAllBytesAsync(fullPath, ct);
+                return new GifCacheItem(fullPath, bytes);
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Failed to get cached item for {fileName}: {ex.Message}");
+            await WriteTextAsync(ctx, 500, "Internal server error.", ct);
+            return;
+        }
 
         if (cached == null)
         {
-            WriteText(ctx, 404, $"File with name '{fileName}' does not exist.");
+            await WriteTextAsync(ctx, 404, $"File with name '{fileName}' does not exist.", ct);
             return;
         }
 
         try
         {
-            byte[] data = cached.Data;
+            var data = cached.Data;
             ctx.Response.StatusCode = 200;
             ctx.Response.ContentType = "image/gif";
             ctx.Response.ContentLength64 = data.Length;
-            ctx.Response.OutputStream.Write(data, 0, data.Length);
-            Logger.Info($"Served: {fileName} ({data.Length} bytes)");
+
+            var dataTask = Task.FromResult(data);
+
+            var writeTask = dataTask.ContinueWith(t =>
+            {
+                var bytes = t.Result;
+                return ctx.Response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct);
+            }, ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+
+            writeTask.ContinueWith(t => { Logger.Info($"Served: {fileName} ({data.Length} bytes)"); },
+                TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously);
+
+            writeTask.ContinueWith(t =>
+            {
+                if (t.IsFaulted) Logger.Error($"Failed to write response for {fileName}: {t.Exception.Message}");
+            }, TaskContinuationOptions.OnlyOnFaulted);
+
+            await writeTask;
         }
         catch (Exception ex)
         {
@@ -60,17 +83,24 @@ public class RequestHandler(SearchService searchService, TtlCache<GifCacheItem> 
         }
         finally
         {
-            try { ctx.Response.Close(); } catch { /* ignore */ }
+            try
+            {
+                ctx.Response.Close();
+            }
+            catch
+            {
+                /* ignore */
+            }
         }
     }
 
-    private void WriteText(HttpListenerContext ctx, int statusCode, string message)
+    private async Task WriteTextAsync(HttpListenerContext ctx, int statusCode, string message, CancellationToken ct)
     {
-        byte[] data = Encoding.UTF8.GetBytes(message);
+        var data = Encoding.UTF8.GetBytes(message);
         ctx.Response.StatusCode = statusCode;
         ctx.Response.ContentType = "text/plain; charset=utf-8";
         ctx.Response.ContentLength64 = data.Length;
-        ctx.Response.OutputStream.Write(data, 0, data.Length);
+        await ctx.Response.OutputStream.WriteAsync(data, 0, data.Length, ct);
         ctx.Response.Close();
     }
 }
