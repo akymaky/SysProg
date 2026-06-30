@@ -1,7 +1,7 @@
 using System.Net;
 using _01_34_SysProg;
 
-var shutdownEvent = new ManualResetEvent(false);
+var shutdownTcs = new TaskCompletionSource();
 
 var workers = Environment.ProcessorCount;
 var rootPath = Path.Join(Directory.GetCurrentDirectory(), "public");
@@ -26,12 +26,12 @@ Console.CancelKeyPress += (_, eventArgs) =>
     eventArgs.Cancel = true;
     Logger.Info("Shutting down...");
     cts.Cancel();
-    shutdownEvent.Set();
+    shutdownTcs.TrySetResult();
 };
 
 Logger.Info("Press CTRL+C to stop.");
 
-shutdownEvent.WaitOne();
+await shutdownTcs.Task;
 
 server.Stop();
 queue.Stop();
