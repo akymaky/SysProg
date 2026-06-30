@@ -5,38 +5,21 @@ public class CacheMaintenanceService<T>(
     CancellationToken ct,
     TimeSpan interval)
 {
-    private Thread? _thread;
-
-    public void Start()
-    {
-        if (_thread != null) throw new InvalidOperationException("Cache maintenance service is already running.");
-
-        _thread = new Thread(_ => Run())
-        {
-            IsBackground = true,
-            Name = "CacheMaintenanceThread"
-        };
-
-        _thread.Start();
-        Logger.Info("Cache maintenance service started.");
-    }
-
-    public void Join()
-    {
-        _thread?.Join();
-    }
-
-    private void Run()
+    public async Task StartAsync()
     {
         try
         {
             while (!ct.IsCancellationRequested)
             {
-                if (ct.WaitHandle.WaitOne(interval)) break;
+                await Task.Delay(interval, ct);
 
                 cache.CleanupExpired();
                 Logger.Info("Cache cleanup completed.");
             }
+        }
+        catch (OperationCanceledException)
+        {
+            Logger.Info("Cache maintenance stopped.");
         }
         catch (Exception ex)
         {

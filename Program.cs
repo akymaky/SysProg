@@ -18,7 +18,6 @@ var workerPool = new WorkerPool(workers, queue, handler, cts.Token);
 var server = new HttpServer(prefix, queue, cts.Token);
 
 workerPool.Start();
-cacheMaintenance.Start();
 server.Start();
 var workerTask = workerPool.StartAsync();
 
@@ -37,6 +36,5 @@ await shutdownTcs.Task;
 server.Stop();
 queue.Stop();
 
-cacheMaintenance.Join();
 
 Logger.Info("Shutdown complete.");
