@@ -34,6 +34,14 @@ public class TtlCache<T>
         try
         {
             value = valueFactory();
+            
+            lock (_lock)
+            {
+                entry.Value = value;
+                entry.IsLoading = false;
+                entry.ExpiresAt = DateTime.UtcNow.Add(_ttl);
+                Monitor.PulseAll(_lock);
+            }
         }
         catch
         {
@@ -45,16 +53,6 @@ public class TtlCache<T>
             }
 
             throw;
-        }
-        finally
-        {
-            lock (_lock)
-            {
-                entry.Value = value;
-                entry.IsLoading = false;
-                entry.ExpiresAt = DateTime.UtcNow.Add(_ttl);
-                Monitor.PulseAll(_lock);
-            }
         }
 
         return value;
