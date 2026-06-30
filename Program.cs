@@ -20,6 +20,7 @@ var server = new HttpServer(prefix, queue, cts.Token);
 workerPool.Start();
 server.Start();
 var workerTask = workerPool.StartAsync();
+var maintenanceTask = cacheMaintenance.StartAsync();
 
 Console.CancelKeyPress += (_, eventArgs) =>
 {
