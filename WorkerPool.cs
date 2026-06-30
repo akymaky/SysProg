@@ -24,7 +24,7 @@ public class WorkerPool(
                     catch (Exception ex)
                     {
                         Logger.Error("Worker error: " + ex.Message);
-                        SafeWriteError(ctx, 500, "Internal server error.");
+                        await SafeWriteError(ctx, 500, "Internal server error.");
                     }
             }, ct);
 
@@ -37,7 +37,7 @@ public class WorkerPool(
         return Task.WhenAll(_tasks);
     }
 
-    private async Task SafeWriteError(HttpListenerContext ctx, int code, string message)
+    private static async Task SafeWriteError(HttpListenerContext ctx, int code, string message)
     {
         try
         {

@@ -54,7 +54,7 @@ public class RequestHandler(SearchService searchService, TtlCache<GifCacheItem> 
 
         try
         {
-            var data = cached.Data;
+            var data = cached.data;
             ctx.Response.StatusCode = 200;
             ctx.Response.ContentType = "image/gif";
             ctx.Response.ContentLength64 = data.Length;

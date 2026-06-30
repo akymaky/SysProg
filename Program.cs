@@ -39,7 +39,7 @@ queue.Stop();
 try
 {
     await Task.WhenAll(serverTask, workerTask, maintenanceTask)
-        .ContinueWith(t => { Logger.Info("All background tasks completed successfully."); },
+        .ContinueWith(_ => { Logger.Info("All background tasks completed successfully."); },
             TaskContinuationOptions.OnlyOnRanToCompletion);
 }
 catch (OperationCanceledException)

@@ -39,7 +39,7 @@ public class HttpServer : IDisposable
                 await _queue.EnqueueAsync(ctx, _ct);
             }
         }
-        catch (HttpListenerException ex) when (_ct.IsCancellationRequested)
+        catch (HttpListenerException) when (_ct.IsCancellationRequested)
         {
             Logger.Error("Listener stopped due to cancellation");
         }
