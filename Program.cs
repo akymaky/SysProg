@@ -3,7 +3,7 @@ using _02_34_SysProg;
 
 var shutdownTcs = new TaskCompletionSource();
 
-var workers = Environment.ProcessorCount;
+var maxConcurrency = Environment.ProcessorCount * 2;
 var rootPath = Path.Join(Directory.GetCurrentDirectory(), "public");
 var prefix = "http://localhost:8080/";
 
@@ -14,7 +14,7 @@ var searchService = new SearchService(rootPath);
 var cache = new TtlCache<GifCacheItem>(TimeSpan.FromMinutes(5));
 var cacheMaintenance = new CacheMaintenanceService<GifCacheItem>(cache, cts.Token, TimeSpan.FromSeconds(30));
 var handler = new RequestHandler(searchService, cache);
-var workerPool = new WorkerPool(workers, queue, handler, cts.Token);
+var workerPool = new WorkerPool(maxConcurrency, queue, handler, cts.Token);
 var server = new HttpServer(prefix, queue, cts.Token);
 
 var workerTask = workerPool.StartAsync();

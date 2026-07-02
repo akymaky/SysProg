@@ -11,9 +11,9 @@ public class RequestQueue<T>
         await _channel.Writer.WriteAsync(item, ct);
     }
 
-    public IAsyncEnumerable<T> DequeueAllAsync(CancellationToken ct)
+    public ValueTask<T> DequeueAsync(CancellationToken ct)
     {
-        return _channel.Reader.ReadAllAsync(ct);
+        return _channel.Reader.ReadAsync(ct);
     }
 
     public void Stop()

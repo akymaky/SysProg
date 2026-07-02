@@ -77,10 +77,6 @@ public class RequestHandler(SearchService searchService, TtlCache<GifCacheItem> 
 
             await writeTask;
         }
-        catch (Exception ex)
-        {
-            Logger.Error($"Failed to write response for {fileName}: {ex.Message}");
-        }
         finally
         {
             try

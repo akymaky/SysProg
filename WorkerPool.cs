@@ -1,22 +1,29 @@
+using System.Collections.Concurrent;
 using System.Net;
 
 namespace _02_34_SysProg;
 
 public class WorkerPool(
-    int poolSize,
+    int maxConcurrency,
     RequestQueue<HttpListenerContext> queue,
     RequestHandler handler,
     CancellationToken ct)
 {
-    private readonly List<Task> _tasks = new();
+    private readonly ConcurrentDictionary<Task, byte> _runningTasks = new();
+    private readonly SemaphoreSlim _concurrencyLimiter = new(maxConcurrency);
 
-    public Task StartAsync()
+    public async Task StartAsync()
     {
-        for (var i = 0; i < poolSize; i++)
+        try
         {
-            var task = Task.Run(async () =>
+            while (!ct.IsCancellationRequested)
             {
-                await foreach (var ctx in queue.DequeueAllAsync(ct))
+                var ctx = await queue.DequeueAsync(ct);
+                
+                await _concurrencyLimiter.WaitAsync(ct);
+
+                var task = Task.Run(async () =>
+                {
                     try
                     {
                         await handler.HandleAsync(ctx, ct);
@@ -26,15 +33,31 @@ public class WorkerPool(
                         Logger.Error("Worker error: " + ex.Message);
                         await SafeWriteError(ctx, 500, "Internal server error.");
                     }
-            }, ct);
+                    finally
+                    {
+                        _concurrencyLimiter.Release();
+                    }
+                }, ct);
+                
+                _runningTasks.TryAdd(task, 0);
+                
+                task.ContinueWith(completedTask =>
+                {
+                    _runningTasks.TryRemove(completedTask, out _);
 
-            task.ContinueWith(t => { Logger.Error($"Worker task faulted: {t.Exception?.InnerException?.Message}"); },
-                TaskContinuationOptions.OnlyOnFaulted);
-
-            _tasks.Add(task);
+                    if (completedTask.IsFaulted)
+                        Logger.Error($"Worker task faulted: {completedTask.Exception?.InnerException?.Message}");
+                }, TaskContinuationOptions.ExecuteSynchronously);
+            }
         }
-
-        return Task.WhenAll(_tasks);
+        catch (OperationCanceledException)
+        {
+            Logger.Info("Worker pool cancelled.");
+        }
+        finally
+        {
+            await Task.WhenAll(_runningTasks.Keys);
+        }
     }
 
     private static async Task SafeWriteError(HttpListenerContext ctx, int code, string message)
