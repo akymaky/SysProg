@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Text.Json;
@@ -6,18 +7,19 @@ using Serilog;
 
 namespace _03_34_SysProg.Rx;
 
-public class ArticleObservable(HttpClient client, string apiKey, ILogger logger)
+public class ArticleObservable(HttpClient client, string apiKey)
 {
+    private readonly ILogger _logger = Log.ForContext<ArticleObservable>();
     public IObservable<NytArticle> GetArticleStream(NytPeriod period)
     {
-        logger.Information("[Rx] Getting articles for period {Period}", period);
+        _logger.Information("[Rx] Getting articles for period {Period}", period);
         return Observable
             .FromAsync(() => FetchArticlesAsync(period))
             .SelectMany(apiResponse => apiResponse.Results)
             .Where(result => !string.IsNullOrEmpty(result.Title))
             .Select(MapArticle)
             .ObserveOn(Scheduler.Default)
-            .Do(article => logger.Information("[Rx] Received article: {Title}", article.Title))
+            .Do(article => _logger.Information("[Rx] Received article: {Title}", article.Title))
             .Retry(1);
     }
 
@@ -36,12 +38,12 @@ public class ArticleObservable(HttpClient client, string apiKey, ILogger logger)
                 throw new Exception($"[Rx] API returned invalid status: {result?.Status}");
             }
             
-            logger.Information("[Rx] Fetched articles for period {period}", period);
+            _logger.Information("[Rx] Fetched articles for period {period}", period);
 
             return result;
         }
         catch (Exception ex) {
-            logger.Error(ex, "[Rx] Error fetching articles for period {period}", period);
+            _logger.Error(ex, "[Rx] Error fetching articles for period {period}", period);
             throw;
         }
     }

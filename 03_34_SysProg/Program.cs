@@ -4,22 +4,24 @@ using _03_34_SysProg.Rx;
 using DotNetEnv;
 using Serilog;
 
-var httpClient = new HttpClient();
-var logger = new LoggerConfiguration()
+Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(theme: LoggerColorTheme.ColorTheme)
     .CreateLogger();
 
+var httpClient = new HttpClient();
+var logger = Log.ForContext<Program>();
+
 Env.NoClobber().Load();
 
-var nyTimesApiKey = Environment.GetEnvironmentVariable("NYTIMES_API_KEY");
+var nytApiKey = Environment.GetEnvironmentVariable("NYT_API_KEY");
 
-if (string.IsNullOrEmpty(nyTimesApiKey))
+if (string.IsNullOrEmpty(nytApiKey))
 {
-    logger.Error("NYTIMES_API_KEY environment variable is not set");
+    logger.Error("NYT_API_KEY environment variable is not set");
     return;
 }
 
-var articleObservable = new ArticleObservable(httpClient, nyTimesApiKey, logger);
+var articleObservable = new ArticleObservable(httpClient, nytApiKey);
 
 var completion = new TaskCompletionSource();
 
