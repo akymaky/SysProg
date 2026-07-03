@@ -8,7 +8,7 @@ namespace _03_34_SysProg.Rx;
 
 public class ArticleObservable(HttpClient client, string apiKey, ILogger logger)
 {
-    public IObservable<NyTimesArticle> GetArticleStream(NyTimesPeriod period)
+    public IObservable<NytArticle> GetArticleStream(NytPeriod period)
     {
         logger.Information("[Rx] Getting articles for period {Period}", period);
         return Observable
@@ -21,7 +21,7 @@ public class ArticleObservable(HttpClient client, string apiKey, ILogger logger)
             .Retry(1);
     }
 
-    private async Task<NyTimesApiResponse> FetchArticlesAsync(NyTimesPeriod period)
+    private async Task<NytApiResponse> FetchArticlesAsync(NytPeriod period)
     {
         var url = $"https://api.nytimes.com/svc/mostpopular/v2/viewed/{(int)period}.json?api-key={apiKey}";
         try {
@@ -29,7 +29,7 @@ public class ArticleObservable(HttpClient client, string apiKey, ILogger logger)
             response.EnsureSuccessStatusCode();
 
             var content = await response.Content.ReadAsStringAsync();
-            var result = JsonSerializer.Deserialize<NyTimesApiResponse>(content);
+            var result = JsonSerializer.Deserialize<NytApiResponse>(content);
 
             if (result?.Status != "OK")
             {
@@ -46,11 +46,11 @@ public class ArticleObservable(HttpClient client, string apiKey, ILogger logger)
         }
     }
     
-    private static NyTimesArticle MapArticle(NyTimesApiResult result)
+    private static NytArticle MapArticle(NytApiResult result)
     {
         DateTime.TryParse(result.PublishedDate, out var publishedDate);
         
-        return new NyTimesArticle {
+        return new NytArticle {
             Title = result.Title,
             Abstract = result.Abstract,
             Url = result.Url,

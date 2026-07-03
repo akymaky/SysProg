@@ -1,6 +1,6 @@
 namespace _03_34_SysProg.Models;
 
-public class NyTimesArticle
+public class NytArticle
 {
     public string Title { get; set; } = string.Empty;
     public string Abstract { get; set; } = string.Empty;

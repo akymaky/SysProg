@@ -1,6 +1,6 @@
 namespace _03_34_SysProg.Models;
 
-public enum NyTimesPeriod
+public enum NytPeriod
 {
     Day = 1,
     Week = 7,

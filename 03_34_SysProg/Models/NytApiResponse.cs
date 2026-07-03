@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace _03_34_SysProg.Models;
 
-public class NyTimesApiResponse
+public class NytApiResponse
 {
     [JsonPropertyName("status")]
     public string Status { get; set; } = string.Empty;
@@ -11,5 +11,5 @@ public class NyTimesApiResponse
     public int NumResults { get; set; }
 
     [JsonPropertyName("results")]
-    public List<NyTimesApiResult> Results { get; set; } = new();
+    public List<NytApiResult> Results { get; set; } = new();
 }

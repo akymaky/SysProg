@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace _03_34_SysProg.Models;
 
-public class NyTimesApiResult
+public class NytApiResult
 {
     [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;

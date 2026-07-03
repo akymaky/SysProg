@@ -23,7 +23,7 @@ var articleObservable = new ArticleObservable(httpClient, nyTimesApiKey, logger)
 
 var completion = new TaskCompletionSource();
 
-articleObservable.GetArticleStream(NyTimesPeriod.Week)
+articleObservable.GetArticleStream(NytPeriod.Week)
     .Subscribe(
         article => logger.Information("[Program] Received article: {Title}", article.Title),
         error => logger.Error("[Program] Error: {Error}", error),
