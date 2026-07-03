@@ -21,16 +21,7 @@ public class NyTimesApiResult
 
     [JsonPropertyName("published_date")]
     public string PublishedDate { get; set; } = string.Empty;
-
-    [JsonPropertyName("des_facet")]
-    public List<string> DescriptionFacets { get; set; } = new();
     
-    [JsonPropertyName("org_facet")]
-    public List<string> OrganizationFacets { get; set; } = new();
-
-    [JsonPropertyName("per_facet")]
-    public List<string> PersonFacets { get; set; } = new();
-    
-    [JsonPropertyName("geo_facet")]
-    public List<string> GeoFacets { get; set; } = new();
+    [JsonPropertyName("adx_keywords")]
+    public string AdxKeywords { get; set; } = string.Empty;
 }

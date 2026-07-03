@@ -1,0 +1,51 @@
+# Build results
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+
+# NuGet packages
+/packages/
+*.nupkg
+*.snupkg
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# Rider / JetBrains
+.idea/
+*.sln.DotSettings.user
+riderModule.iml
+/_ReSharper.Caches/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Test results / coverage
+TestResults/
+coverage/
+coverage.*
+*.coverage
+*.coveragexml
+
+# Publish output
+publish/
+*.Publish.xml
