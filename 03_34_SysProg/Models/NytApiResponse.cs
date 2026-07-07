@@ -4,12 +4,9 @@ namespace _03_34_SysProg.Models;
 
 public class NytApiResponse
 {
-    [JsonPropertyName("status")]
-    public string Status { get; set; } = string.Empty;
+    [JsonPropertyName("status")] public string Status { get; init; } = string.Empty;
 
-    [JsonPropertyName("num_results")]
-    public int NumResults { get; set; }
+    [JsonPropertyName("num_results")] public int NumResults { get; init; }
 
-    [JsonPropertyName("results")]
-    public List<NytApiResult> Results { get; set; } = new();
+    [JsonPropertyName("results")] public List<NytApiResult> Results { get; init; } = [];
 }

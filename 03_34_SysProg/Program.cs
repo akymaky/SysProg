@@ -1,6 +1,7 @@
-﻿using _03_34_SysProg.Logger;
-using _03_34_SysProg.Models;
+﻿using _03_34_SysProg.Actors;
+using _03_34_SysProg.Logger;
 using _03_34_SysProg.Rx;
+using Akka.Actor;
 using DotNetEnv;
 using Serilog;
 
@@ -8,28 +9,40 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(theme: LoggerColorTheme.ColorTheme)
     .CreateLogger();
 
-var httpClient = new HttpClient();
-var logger = Log.ForContext<Program>();
-
 Env.NoClobber().Load();
 
 var nytApiKey = Environment.GetEnvironmentVariable("NYT_API_KEY");
 
 if (string.IsNullOrEmpty(nytApiKey))
 {
-    logger.Error("NYT_API_KEY environment variable is not set");
+    Log.Error("NYT_API_KEY environment variable is not set");
     return;
 }
 
-var articleObservable = new ArticleObservable(httpClient, nytApiKey);
+using var system = ActorSystem.Create("NytSystem");
+var supervisor = system.ActorOf(SystemSupervisor.Create());
 
-var completion = new TaskCompletionSource();
+var shutdownTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-articleObservable.GetArticleStream(NytPeriod.Week)
-    .Subscribe(
-        article => logger.Information("[Program] Received article: {Title}", article.Title),
-        error => logger.Error("[Program] Error: {Error}", error),
-        completion.SetResult
-    );
+using var streamService = new ArticleStreamService(nytApiKey, supervisor);
+streamService.Start();
 
-await completion.Task;
+using var httpServer = new HttpServer("http://localhost:30000/", supervisor);
+httpServer.Start();
+
+Console.CancelKeyPress += (_, e) =>
+{
+    e.Cancel = true;
+    Log.Information("CTRL+C received. Initiating graceful shutdown...");
+    shutdownTcs.TrySetResult();
+};
+
+AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+{
+    Log.Information("SIGTERM received. Initiating graceful shutdown...");
+    shutdownTcs.TrySetResult();
+};
+
+await shutdownTcs.Task;
+await system.Terminate();
+await Log.CloseAndFlushAsync();
