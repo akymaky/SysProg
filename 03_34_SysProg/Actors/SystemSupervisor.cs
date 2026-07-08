@@ -24,7 +24,7 @@ public class SystemSupervisor : ReceiveActor
             TimeSpan.FromSeconds(60),
             Decider.From(ex => ex switch
             {
-                InvalidOperationException => Directive.Resume,
+                InvalidOperationException => Directive.Restart,
                 IOException => Directive.Restart,
                 ArgumentException => Directive.Stop,
                 _ => Directive.Escalate

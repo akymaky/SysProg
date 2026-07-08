@@ -27,7 +27,7 @@ public class ArticleStoreActor : ReceiveActor
             var list = _articles
                 .GetValueOrDefault(msg.Period, [])
                 .ToList();
-            Sender.Tell(new ArticlesSnapshot { Articles = list });
+            Sender.Tell(new ArticlesSnapshot(list));
         });
     }
 

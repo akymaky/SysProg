@@ -1,5 +1,4 @@
 using System.Net;
-using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Text;
 using System.Text.Json;
@@ -49,11 +48,18 @@ public sealed class HttpServer : IDisposable
         _subscription = Observable
             .FromAsync(() => _listener.GetContextAsync())
             .Repeat()
-            .ObserveOn(Scheduler.Default)
+            .Catch<HttpListenerContext, HttpListenerException>(ex => ex.ErrorCode switch
+            {
+                995 => Observable.Empty<HttpListenerContext>(),
+                _ => Observable.Throw<HttpListenerContext>(ex)
+            })
+            .Catch<HttpListenerContext, ObjectDisposedException>(_ =>
+                Observable.Empty<HttpListenerContext>())
+            .SelectMany(ctx => Observable.FromAsync(() => HandleAsync(ctx)))
             .Subscribe(
-                async ctx => await HandleAsync(ctx),
-                ex => Log.Error(ex, "Error handling HTTP request")
-            );
+                _ => Log.Debug("[Rx] HTTP Request processed"),
+                ex => Log.Error(ex, "[Rx] HTTP accept fatal error"),
+                () => Log.Information("[Rx] HTTP accept loop completed"));
     }
 
     private async Task HandleAsync(HttpListenerContext ctx)
@@ -96,7 +102,7 @@ public sealed class HttpServer : IDisposable
         );
     }
 
-    private void Stop()
+    public void Stop()
     {
         if (_disposed) return;
         _listener.Stop();

@@ -2,6 +2,7 @@
 using _03_34_SysProg.Logger;
 using _03_34_SysProg.Rx;
 using Akka.Actor;
+using Akka.Configuration;
 using DotNetEnv;
 using Serilog;
 
@@ -19,7 +20,23 @@ if (string.IsNullOrEmpty(nytApiKey))
     return;
 }
 
-using var system = ActorSystem.Create("NytSystem");
+var config = ConfigurationFactory.ParseString(@"
+    akka {
+        actor {
+            default-dispatcher {
+                executor = fork-join-executor
+                fork-join-executor {
+                    parallelism-min = 4
+                    parallelism-factor = 2.0
+                    parallelism-max = 16
+                }
+                throughput = 100
+            }
+        }
+    }
+");
+
+using var system = ActorSystem.Create("NytSystem", config);
 var supervisor = system.ActorOf(SystemSupervisor.Create());
 
 var shutdownTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -44,5 +61,9 @@ AppDomain.CurrentDomain.ProcessExit += (_, _) =>
 };
 
 await shutdownTcs.Task;
+
+httpServer.Stop();
+streamService.Stop();
+
 await system.Terminate();
 await Log.CloseAndFlushAsync();

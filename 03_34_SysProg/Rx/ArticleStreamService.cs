@@ -9,7 +9,7 @@ using Serilog;
 
 namespace _03_34_SysProg.Rx;
 
-public sealed class ArticleStreamService(string apiKey, IActorRef storeTarget) : IDisposable
+public sealed class ArticleStreamService(string apiKey, IActorRef pipelineTarget) : IDisposable
 {
     private static readonly HttpClient HttpClient = new();
     private bool _disposed;
@@ -20,9 +20,8 @@ public sealed class ArticleStreamService(string apiKey, IActorRef storeTarget) :
         if (_disposed) return;
         _disposed = true;
 
+        Stop();
         HttpClient.Dispose();
-        _subscription?.Dispose();
-        _subscription = null;
 
         Log.Information("Disposing article stream service...");
     }
@@ -57,8 +56,8 @@ public sealed class ArticleStreamService(string apiKey, IActorRef storeTarget) :
             .ObserveOn(Scheduler.Default)
             .Do(article =>
             {
-                storeTarget.Tell(new AddArticle { Article = article, Period = period });
-                Log.Information("[Rx] Emitted article {Title} to {Target}", article.Title, storeTarget);
+                pipelineTarget.Tell(new AddArticle(article, period));
+                Log.Information("[Rx] Emitted article {Title} to {Target}", article.Title, pipelineTarget);
             })
             .Retry(1);
     }
@@ -103,5 +102,11 @@ public sealed class ArticleStreamService(string apiKey, IActorRef storeTarget) :
             PublishedDate = publishedDate,
             Keywords = result.AdxKeywords.Split(';').Select(x => x.Trim()).ToImmutableList()
         };
+    }
+
+    public void Stop()
+    {
+        _subscription?.Dispose();
+        _subscription = null;
     }
 }

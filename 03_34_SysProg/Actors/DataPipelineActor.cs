@@ -9,16 +9,44 @@ public class DataPipelineActor : ReceiveActor
     {
         var store = Context.ActorOf(ArticleStoreActor.Create());
 
-        Receive<AddArticle>(msg => store.Forward(msg));
+        var topic = Context.ActorOf(TopicModelingActor.Create());
+
+        Receive<AddArticle>(msg =>
+        {
+            store.Tell(msg);
+            topic.Tell(msg);
+        });
 
         ReceiveAsync<GetCurrentState>(async msg =>
         {
             var timeout = TimeSpan.FromSeconds(5);
 
-            var articles = await store.Ask<ArticlesSnapshot>(new GetArticlesByPeriod { Period = msg.Period }, timeout);
+            var storeTask = store.Ask<ArticlesSnapshot>(
+                new GetArticlesByPeriod(msg.Period), timeout);
 
-            Sender.Tell(new AnalysisResult(articles.Articles.Count));
+            var topicsTask = topic.Ask<TopicsSnapshot>(
+                new GetTopicsByPeriod(msg.Period), timeout);
+
+            await Task.WhenAll(storeTask, topicsTask);
+
+            var articles = await storeTask;
+            var topics = await topicsTask;
+
+            Sender.Tell(new AnalysisResult(articles.Articles.Count, topics.Results));
         });
+    }
+
+    protected override SupervisorStrategy SupervisorStrategy()
+    {
+        return new OneForOneStrategy(
+            3,
+            TimeSpan.FromSeconds(30),
+            Decider.From(ex => ex switch
+            {
+                InvalidOperationException _ => Directive.Restart,
+                ArgumentException _ => Directive.Stop,
+                _ => Directive.Restart
+            }));
     }
 
     public static Props Create()
