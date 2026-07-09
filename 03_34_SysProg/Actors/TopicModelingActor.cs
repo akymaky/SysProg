@@ -1,5 +1,4 @@
 using _03_34_SysProg.Messages;
-using _03_34_SysProg.ML;
 using _03_34_SysProg.Models;
 using Akka.Actor;
 using Serilog;
@@ -16,7 +15,7 @@ public class TopicModelingActor : ReceiveActor, IWithTimers
 
     public TopicModelingActor()
     {
-        var modeler = new TopicModeler();
+        var worker = Context.ActorOf(TopicWorkerActor.Create(), "topicWorker");
 
         Receive<AddArticle>(msg =>
         {
@@ -34,35 +33,34 @@ public class TopicModelingActor : ReceiveActor, IWithTimers
 
             value.Add(msg.Article);
 
-            if (!_isComputing[p] && _buffer[p].Count >= 5) Self.Tell(new ComputeTopics());
+            if (!_isComputing[p] && _buffer[p].Count >= 5)
+                Self.Tell(new ComputeTopics());
         });
 
         Receive<ComputeTopics>(_ =>
         {
-            foreach (var p in _buffer.Keys.Where(p => !_isComputing[p] && _buffer[p].Count >= 5))
+            foreach (var p in _buffer.Keys.Where(p => !_isComputing[p] && _buffer[p].Count >= 5).ToList())
             {
                 _isComputing[p] = true;
-                
-                var period = p;
-                var articlesSnapshot = _buffer[period].ToList();
-                
-                Task.Run(() => modeler.Analyze(articlesSnapshot))
-                    .PipeTo(
-                        Self,
-                        Self,
-                        result => new TopicsComputed(result, p),
-                        ex => new TopicsFailed(ex, p));
-                Log.Information("[Topics] Recomputing for period={Period}", p);
+
+                var articlesSnapshot = _buffer[p].ToList();
+
+                worker.Tell(new AnalyzeTopics(p, articlesSnapshot), Self);
+
+                Log.Information(
+                    "[Topics] Sent topic modeling job to worker for period={Period}, articles={Count}",
+                    p,
+                    articlesSnapshot.Count);
             }
         });
 
         Receive<GetTopicsByPeriod>(msg =>
         {
-            var results = _lastTopics[msg.Period];
+            var results = _lastTopics.GetValueOrDefault(msg.Period, []);
             Sender.Tell(new TopicsSnapshot(results));
         });
 
-        Receive<TopicsComputed>(msg =>
+        Receive<TopicAnalysisCompleted>(msg =>
         {
             var p = msg.Period;
             _isComputing[p] = false;
@@ -77,12 +75,21 @@ public class TopicModelingActor : ReceiveActor, IWithTimers
                     ArticleTitles = g.Select(x => x.Article.Title).ToList()
                 })
                 .ToList();
-            Log.Information("[Topics] Computed for period={Period}", p);
+
+            Log.Information(
+                "[Topics] Computed for period={Period}, topics={Count}",
+                p,
+                _lastTopics[p].Count);
         });
 
-        Receive<TopicsFailed>(msg =>
+        Receive<TopicAnalysisFailed>(msg =>
         {
-            Log.Error(msg.Exception, "[Topics] Failed to compute for period={Period}", msg.Period);
+            _isComputing[msg.Period] = false;
+
+            Log.Error(
+                "[Topics] Failed to compute for period={Period}. Error={Error}",
+                msg.Period,
+                msg.Error);
         });
 
         Timers.StartPeriodicTimer(
@@ -98,8 +105,4 @@ public class TopicModelingActor : ReceiveActor, IWithTimers
     {
         return Props.Create(() => new TopicModelingActor());
     }
-
-    private record TopicsComputed(List<ArticleTopic> Assignments, NytPeriod Period);
-
-    private record TopicsFailed(Exception Exception, NytPeriod Period);
 }

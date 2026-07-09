@@ -32,6 +32,15 @@ var config = ConfigurationFactory.ParseString(@"
                 }
                 throughput = 100
             }
+
+            topic-modeling-dispatcher {
+                type = Dispatcher
+                executor = thread-pool-executor
+                thread-pool-executor {
+                    fixed-pool-size = 3
+                }
+                throughput = 1
+            }
         }
     }
 ");

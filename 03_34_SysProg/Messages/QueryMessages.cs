@@ -6,6 +6,4 @@ public record GetCurrentState(NytPeriod Period);
 
 public record GetArticlesByPeriod(NytPeriod Period);
 
-public record GetSentimentsByPeriod(NytPeriod Period);
-
 public record GetTopicsByPeriod(NytPeriod Period);

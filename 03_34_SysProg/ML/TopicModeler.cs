@@ -18,22 +18,26 @@ public class TopicModeler
         ["Technology"] =
         [
             "ai", "software", "tech", "internet", "computer", "digital", "app", "data", "cyber", "robot", "algorithm",
-            "chip", "phone"
+            "chip", "phone", "semiconductor", "startup", "cloud", "encryption", "artificial intelligence",
+            "machine learning", "cybersecurity"
         ],
         ["Business"] =
         [
             "market", "stock", "economy", "trade", "company", "business", "finance", "money", "investor", "bank", "ceo",
-            "revenue", "profit"
+            "revenue", "profit", "inflation", "merger", "acquisition", "earnings", "shares", "wall street",
+            "interest rates"
         ],
         ["Health"] =
         [
             "health", "medical", "doctor", "hospital", "covid", "disease", "vaccine", "drug", "patient", "treatment",
-            "cancer", "medicine"
+            "cancer", "medicine", "clinical", "symptoms", "diagnosis", "surgery", "public health", "mental health",
+            "epidemic", "outbreak", "bacteria"
         ],
         ["Science"] =
         [
             "space", "nasa", "climate", "earth", "scientist", "research", "study", "physics", "chemistry", "biology",
-            "planet", "molecule"
+            "planet", "molecule", "astronomy", "telescope", "fossil", "genome", "laboratory", "experiment",
+            "researchers"
         ],
         ["Sports"] =
         [
@@ -43,7 +47,8 @@ public class TopicModeler
         ["Entertainment"] =
         [
             "movie", "film", "music", "actor", "celebrity", "show", "album", "concert", "hollywood", "oscar", "grammy",
-            "netflix"
+            "emmy",
+            "netflix", "podcast", "tv", "television", "cinema", "director", "producer", "cinematography", "cinema"
         ]
     };
 
@@ -57,12 +62,12 @@ public class TopicModeler
                 TopicName = "Miscellaneous"
             }).ToList();
 
-        var numClusters = Math.Min(5, Math.Max(2, articles.Count / 5));
+        var numClusters = Math.Min(_topicKeywords.Count, Math.Max(2, articles.Count / 4));
 
         var documents = articles.Select((a, i) => new MlDocument
         {
             Id = i,
-            Text = $"{a.Title} {a.Abstract}"
+            Text = a.FullText
         }).ToList();
 
         var data = _mlContext.Data.LoadFromEnumerable(documents);
@@ -101,19 +106,19 @@ public class TopicModeler
         {
             Article = a,
             ClusterId = (int)results[i].ClusterId,
-            TopicName = clusterLabels[(int)results[i].ClusterId]
+            TopicName = clusterLabels.GetValueOrDefault((int)results[i].ClusterId, "Miscellaneous")
         }).ToList();
     }
 
     private string LabelCluster(List<NytArticle> articles)
     {
-        var text = string.Join(" ", articles.Select(a => $"{a.Title} {a.Abstract}"))
+        var text = string.Join(" ", articles.Select(a => a.FullText))
             .ToLowerInvariant();
 
         var scored = _topicKeywords.Select(kvp => new
         {
             Topic = kvp.Key,
-            Score = kvp.Value.Count(kw => text.Contains(kw))
+            Score = kvp.Value.Count(text.Contains)
         });
 
         var best = scored.OrderByDescending(x => x.Score).First();

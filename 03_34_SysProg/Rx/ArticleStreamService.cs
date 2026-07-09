@@ -11,17 +11,18 @@ namespace _03_34_SysProg.Rx;
 
 public sealed class ArticleStreamService(string apiKey, IActorRef pipelineTarget) : IDisposable
 {
-    private static readonly HttpClient HttpClient = new();
+    private readonly HttpClient _httpClient = new();
     private bool _disposed;
     private IDisposable? _subscription;
 
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true;
 
         Stop();
-        HttpClient.Dispose();
+
+        _disposed = true;
+        _httpClient.Dispose();
 
         Log.Information("Disposing article stream service...");
     }
@@ -49,17 +50,23 @@ public sealed class ArticleStreamService(string apiKey, IActorRef pipelineTarget
         return Observable
             .Timer(TimeSpan.Zero, TimeSpan.FromMinutes(1), Scheduler.Default)
             .Do(_ => Log.Information("[Rx] Periodic polling for {Period}", period))
-            .SelectMany(_ => Observable.FromAsync(() => FetchPeriodAsync(period)))
+            .SelectMany(_ =>
+                Observable
+                    .FromAsync(() => FetchPeriodAsync(period))
+                    .Catch<NytApiResponse, Exception>(ex =>
+                    {
+                        Log.Error(ex, "[Rx] Skipping failed fetch for {Period}; next polling tick will retry", period);
+                        return Observable.Empty<NytApiResponse>();
+                    }))
             .SelectMany(response => response.Results)
-            .Where(r => !string.IsNullOrEmpty(r.Title))
+            .Where(r => !string.IsNullOrWhiteSpace(r.Title))
             .Select(MapToArticle)
             .ObserveOn(Scheduler.Default)
             .Do(article =>
             {
                 pipelineTarget.Tell(new AddArticle(article, period));
                 Log.Information("[Rx] Emitted article {Title} to {Target}", article.Title, pipelineTarget);
-            })
-            .Retry(1);
+            });
     }
 
     private async Task<NytApiResponse> FetchPeriodAsync(NytPeriod period)
@@ -68,7 +75,7 @@ public sealed class ArticleStreamService(string apiKey, IActorRef pipelineTarget
 
         try
         {
-            var response = await HttpClient.GetAsync(nytApi);
+            var response = await _httpClient.GetAsync(nytApi);
             response.EnsureSuccessStatusCode();
 
             var content = await response.Content.ReadAsStringAsync();
@@ -100,7 +107,9 @@ public sealed class ArticleStreamService(string apiKey, IActorRef pipelineTarget
             Byline = result.Byline,
             Section = result.Section,
             PublishedDate = publishedDate,
-            Keywords = result.AdxKeywords.Split(';').Select(x => x.Trim()).ToImmutableList()
+            Keywords = result.AdxKeywords
+                .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToImmutableList()
         };
     }
 

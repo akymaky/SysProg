@@ -2,9 +2,9 @@ using Serilog.Sinks.SystemConsole.Themes;
 
 namespace _03_34_SysProg.Logger;
 
-public class LoggerColorTheme
+public static class LoggerColorTheme
 {
-    public static SystemConsoleTheme ColorTheme = new(
+    public static readonly SystemConsoleTheme ColorTheme = new(
         new Dictionary<ConsoleThemeStyle, SystemConsoleThemeStyle>
         {
             [ConsoleThemeStyle.Text] = new(),

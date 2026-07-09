@@ -31,11 +31,11 @@ public sealed class HttpServer : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true;
 
         Stop();
+
+        _disposed = true;
         _listener.Close();
-        _subscription?.Dispose();
     }
 
     public void Start()
@@ -78,33 +78,137 @@ public sealed class HttpServer : IDisposable
             request.Url
         );
 
-        var analysisResponse = await _queryTarget.Ask<AnalysisResult>(
-            new GetCurrentState(NytPeriod.Day)
-        );
+        try
+        {
+            if (request.HttpMethod != "GET")
+            {
+                await WriteJsonAsync(
+                    response,
+                    new { error = "Only GET method is supported" },
+                    HttpStatusCode.MethodNotAllowed);
+                return;
+            }
 
-        var json = JsonSerializer.Serialize(analysisResponse, _jsonOptions);
+            if (request.Url?.AbsolutePath != "/analysis")
+            {
+                await WriteJsonAsync(
+                    response,
+                    new { error = "Not found. Use GET /analysis?period=day|week|month" },
+                    HttpStatusCode.NotFound);
+                return;
+            }
 
-        response.StatusCode = 200;
-        response.ContentType = "application/json; charset=utf-8";
+            if (!TryParsePeriod(request.QueryString["period"], out var period))
+            {
+                await WriteJsonAsync(
+                    response,
+                    new
+                    {
+                        error =
+                            "Invalid or missing period. Use period=day, period=week, period=month, period=1, period=7 or period=30."
+                    },
+                    HttpStatusCode.BadRequest);
+                return;
+            }
 
+            var analysisResult = await _queryTarget.Ask<AnalysisResult>(
+                new GetCurrentState(period),
+                TimeSpan.FromSeconds(10)
+            );
+
+            var analysisResponse = new AnalysisResponse
+            {
+                Period = period.ToString(),
+                TotalArticles = analysisResult.TotalArticles,
+                Topics = analysisResult.Topics,
+                ProcessedAt = DateTime.UtcNow
+            };
+
+            await WriteJsonAsync(response, analysisResponse, HttpStatusCode.OK);
+
+            Log.Information(
+                "[{RequestId}] {Client} << Request successfully handled in {Elapsed} for period={Period}",
+                requestId,
+                request.RemoteEndPoint,
+                DateTime.Now - startTime,
+                period
+            );
+        }
+        catch (Exception ex)
+        {
+            Log.Error(
+                ex,
+                "[{RequestId}] {Client} << Request failed after {Elapsed}",
+                requestId,
+                request.RemoteEndPoint,
+                DateTime.Now - startTime
+            );
+
+            try
+            {
+                await WriteJsonAsync(
+                    response,
+                    new { error = "Internal server error" },
+                    HttpStatusCode.InternalServerError);
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+        finally
+        {
+            response.Close();
+        }
+    }
+
+    private static bool TryParsePeriod(string? value, out NytPeriod period)
+    {
+        period = NytPeriod.Day;
+
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            "day" or "1" => SetPeriod(NytPeriod.Day, out period),
+            "week" or "7" => SetPeriod(NytPeriod.Week, out period),
+            "month" or "30" => SetPeriod(NytPeriod.Month, out period),
+            _ => false
+        };
+    }
+
+    private static bool SetPeriod(NytPeriod value, out NytPeriod period)
+    {
+        period = value;
+        return true;
+    }
+
+    private async Task WriteJsonAsync(HttpListenerResponse response, object body, HttpStatusCode statusCode)
+    {
+        var json = JsonSerializer.Serialize(body, _jsonOptions);
         var buffer = Encoding.UTF8.GetBytes(json);
+
+        response.StatusCode = (int)statusCode;
+        response.ContentType = "application/json; charset=utf-8";
         response.ContentLength64 = buffer.Length;
+
         await response.OutputStream.WriteAsync(buffer, 0, buffer.Length);
-
-        ctx.Response.StatusCode = 200;
-        ctx.Response.Close();
-
-        Log.Information(
-            "[{RequestId}] {Client} << Request handled in {Elapsed}",
-            requestId,
-            request.RemoteEndPoint,
-            DateTime.Now - startTime
-        );
     }
 
     public void Stop()
     {
         if (_disposed) return;
+
+        _subscription?.Dispose();
+        _subscription = null;
+
+        if (!_listener.IsListening)
+        {
+            Log.Debug("HTTP server is already stopped");
+            return;
+        }
+
         _listener.Stop();
         Log.Information("Stopping HTTP server");
     }
